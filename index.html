@@ -2087,39 +2087,44 @@
 
             let userMessage =
               "There was an issue submitting your RSVP. Please try again or contact us directly.";
-            let detailText = "";
 
             if (error.status) {
-              // API error response
               const status = error.status;
-              detailText = error.body;
+              let apiResponse = null;
+              try {
+                apiResponse = JSON.parse(error.body);
+              } catch (e) {
+                apiResponse = null;
+              }
 
               if (status === 409) {
-                // Duplicate email
-                try {
-                  const apiResponse = JSON.parse(error.body);
-                  userMessage =
-                    apiResponse.message ||
-                    "This email address has already submitted an RSVP. If you need to update your response, please contact us directly.";
-                } catch (e) {
-                  userMessage =
-                    "This email address has already submitted an RSVP. If you need to update your response, please contact us directly.";
-                }
-              } else if (status === 400) {
                 userMessage =
-                  "Please check that all required fields are filled in correctly.";
+                  (apiResponse && apiResponse.message) ||
+                  "This email address has already submitted an RSVP. If you need to update your response, please contact us directly.";
+              } else if (status === 400) {
+                if (
+                  apiResponse &&
+                  Array.isArray(apiResponse.data) &&
+                  apiResponse.data.length
+                ) {
+                  userMessage = apiResponse.data
+                    .map((d) => d.message)
+                    .filter(Boolean)
+                    .join(" ");
+                } else if (apiResponse && apiResponse.message) {
+                  userMessage = apiResponse.message;
+                } else {
+                  userMessage =
+                    "Please check that all required fields are filled in correctly.";
+                }
+              } else if (apiResponse && apiResponse.message) {
+                userMessage = apiResponse.message;
               }
-            } else if (error.message) {
-              detailText = error.message;
             }
 
             errorText.textContent = userMessage;
-            if (detailText) {
-              errorDetail.textContent = detailText;
-              errorDetail.style.display = "block";
-            } else {
-              errorDetail.style.display = "none";
-            }
+            errorDetail.style.display = "none";
+            errorDetail.textContent = "";
             errorMsg.classList.add("show");
             errorMsg.scrollIntoView({ behavior: "smooth", block: "center" });
           });
